@@ -3,47 +3,62 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>MindAR 最小サンプル（自前ターゲット）</title>
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <title>MindAR Minimal</title>
+  <!-- 安定組み合わせ。黒化が残る場合は 1.6.0→1.4.0 を推奨 -->
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 </head>
-<body>
-  <!-- ルート直下の targets.mind を直指定。キャッシュ回避に ?v=1 を付けてもOK -->
+<body style="margin:0; overflow:hidden;">
   <a-scene
-    mindar-image="imageTargetSrc: targets.mind?v=5;"
+    embedded
+    mindar-image="imageTargetSrc: ./targets.mind?v=5"
+    renderer="alpha:true; colorManagement:false; physicallyCorrectLights:false"
     vr-mode-ui="enabled:false"
     device-orientation-permission-ui="enabled:false">
 
-    <a-assets>
-      <!-- 重ねるPNG（直下） -->
-      <img id="overlay" src="real-itinerary.png?v=5">
+    <a-assets timeout="20000">
+      <!-- index.html と同じ階層に real-itinerary.png を置く（綴り完全一致） -->
+      <img id="overlay" src="./real-itinerary.png?v=5" crossorigin="anonymous">
     </a-assets>
+
+    <!-- flat を使うのでライトは不要だが、念のため1本 -->
+    <a-entity light="type: ambient; intensity: 1"></a-entity>
 
     <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
 
-    <!-- ターゲット0上にPNGをジャストサイズで表示（幅=1, 高さ=比率） -->
     <a-entity mindar-image-target="targetIndex: 0">
-      <a-plane id="pane" src="#overlay" position="0 0 0" rotation="0 0 0"></a-plane>
+      <!-- まず白板（flat=無照明, side=両面）で絶対に黒にならない状態を作る -->
+      <a-plane id="pane"
+        width="1" height="0.7"
+        material="shader: flat; color: #FFFFFF; side: double; transparent: true">
+      </a-plane>
     </a-entity>
   </a-scene>
 
   <script>
-    // 画像比率で平面サイズを合わせる（0サイズ防止）
-    const img = document.getElementById('overlay');
-    const pane= document.getElementById('pane');
-    function fit(){
-      if(!img.naturalWidth||!img.naturalHeight) return;
-      const r = img.naturalHeight / img.naturalWidth;
+    // 画像が読めたらテクスチャに差し替え（ロード前は白板のまま）
+    const img  = document.getElementById('overlay');
+    const pane = document.getElementById('pane');
+
+    function useTexture() {
+      const r = img.naturalHeight / img.naturalWidth || 0.7;
       pane.setAttribute('width', 1);
       pane.setAttribute('height', r);
-      console.log('[overlay] size set', {w:1, h:r});
+      pane.setAttribute('material',
+        'shader: flat; src: #overlay; side: double; transparent: true; color: #FFFFFF');
+      console.log('✅ texture set', {w:1, h:r});
     }
-    if (img.complete && img.naturalWidth) fit(); else img.addEventListener('load', fit);
 
-    // 検出ログ
+    img.addEventListener('load', useTexture);
+    img.addEventListener('error', () => {
+      console.warn('⚠️ overlay image failed to load (path/拡張子/大文字小文字を確認)');
+    });
+    if (img.complete && img.naturalWidth) useTexture();
+
+    // MindAR 検出ログ
     const anchor = document.querySelector('[mindar-image-target]');
-    anchor.addEventListener('targetFound', ()=>console.log('found 0'));
-    anchor.addEventListener('targetLost',  ()=>console.log('lost 0'));
+    anchor.addEventListener('targetFound', ()=>console.log('found target 0'));
+    anchor.addEventListener('targetLost',  ()=>console.log('lost target 0'));
   </script>
 </body>
 </html>
