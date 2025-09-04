@@ -3,31 +3,31 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>MindAR Minimal</title>
-  <!-- 安定組み合わせ。黒化が残る場合は 1.6.0→1.4.0 を推奨 -->
+  <title>Ikemoto Surprise Day1</title>
+
+  <!-- 1.6.0 で黒化する端末があるため 1.4.0 に固定 -->
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 </head>
-<body style="margin:0; overflow:hidden;">
+<body style="margin:0;overflow:hidden;">
   <a-scene
     embedded
-    mindar-image="imageTargetSrc: ./targets.mind?v=5"
+    mindar-image="imageTargetSrc: ./targets.mind?v=50"
     renderer="alpha:true; colorManagement:false; physicallyCorrectLights:false"
     vr-mode-ui="enabled:false"
     device-orientation-permission-ui="enabled:false">
 
     <a-assets timeout="20000">
-      <!-- index.html と同じ階層に real-itinerary.png を置く（綴り完全一致） -->
       <img id="overlay" src="./real-itinerary.png?v=5" crossorigin="anonymous">
     </a-assets>
 
-    <!-- flat を使うのでライトは不要だが、念のため1本 -->
+    <!-- flat を使うので実は不要だが安全のため入れておく -->
     <a-entity light="type: ambient; intensity: 1"></a-entity>
 
     <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
 
     <a-entity mindar-image-target="targetIndex: 0">
-      <!-- まず白板（flat=無照明, side=両面）で絶対に黒にならない状態を作る -->
+      <!-- まず白板（flat/両面）を必ず出す：ここで黒くなる余地ゼロ -->
       <a-plane id="pane"
         width="1" height="0.7"
         material="shader: flat; color: #FFFFFF; side: double; transparent: true">
@@ -36,26 +36,27 @@
   </a-scene>
 
   <script>
-    // 画像が読めたらテクスチャに差し替え（ロード前は白板のまま）
+    // 画像ロード後に「白板→テクスチャ」に差し替える（早貼り黒化を防ぐ）
     const img  = document.getElementById('overlay');
     const pane = document.getElementById('pane');
 
-    function useTexture() {
-      const r = img.naturalHeight / img.naturalWidth || 0.7;
+    function applyTexture(){
+      const r = (img.naturalHeight && img.naturalWidth)
+                  ? img.naturalHeight / img.naturalWidth : 0.7;
       pane.setAttribute('width', 1);
       pane.setAttribute('height', r);
-      pane.setAttribute('material',
-        'shader: flat; src: #overlay; side: double; transparent: true; color: #FFFFFF');
+      pane.setAttribute(
+        'material',
+        'shader: flat; src: #overlay; side: double; transparent: true; color: #FFFFFF'
+      );
       console.log('✅ texture set', {w:1, h:r});
     }
 
-    img.addEventListener('load', useTexture);
-    img.addEventListener('error', () => {
-      console.warn('⚠️ overlay image failed to load (path/拡張子/大文字小文字を確認)');
-    });
-    if (img.complete && img.naturalWidth) useTexture();
+    if (img.complete && img.naturalWidth) applyTexture();
+    else img.addEventListener('load', applyTexture);
+    img.addEventListener('error', () => console.warn('⚠️ real-itinerary.png を読み込めません'));
 
-    // MindAR 検出ログ
+    // 検出ログ
     const anchor = document.querySelector('[mindar-image-target]');
     anchor.addEventListener('targetFound', ()=>console.log('found target 0'));
     anchor.addEventListener('targetLost',  ()=>console.log('lost target 0'));
